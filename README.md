@@ -1,4 +1,4 @@
-# Sideby ✳ — Firebase edition
+# Sideby - Realtime Chat
 
 An original, warm direct messaging app built with **Next.js App Router, TypeScript, Tailwind CSS, Firebase Authentication, Cloud Firestore and optional Cloud Storage**. Cream, peach and coral give a compact, focused chat interface its own identity.
 
@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000/demo. Sample people do not reply. Message/conversation CRUD and profile changes are saved locally under `sideby-demo` in browser storage. Demo files display filenames only. No Firebase configuration is needed for this route.
+Open http://localhost:3000/demo. Sample people do not reply. Message/conversation CRUD and profile changes are saved locally under `sideby-demo` in browser storage. Selected images have previews before sending and inside message bubbles. Demo image previews last until refresh; filenames and messages remain in browser storage. Other attachments display filenames. No Firebase configuration is needed for this route.
 
 ## Connect the real app
 
@@ -30,15 +30,21 @@ This edition replaces Supabase entirely. There is no SQL/RLS migration to run. I
 
 | Area          | Included behavior                                                                                     |
 | ------------- | ----------------------------------------------------------------------------------------------------- |
-| Auth          | Signup, verification email, verified-email login, HttpOnly server session, sign out                   |
-| Profiles      | Validated onboarding, atomic unique usernames, display name/bio editing                               |
+| Auth          | Signup, email verification, sign-in, show/hide password, password-reset email, HttpOnly session, sign out                   |
+| Profiles      | Validated onboarding, lowercase unique usernames, optional bio, display name/bio editing                               |
 | Conversations | Username-prefix search, deduplicated direct conversations, bilateral deletion                         |
-| Messages      | Create/read/edit/delete, server timestamps, ownership checks, live snapshots                          |
+| Messages      | Create/read/edit/delete, searchable emoji picker, server timestamps, ownership checks, live snapshots                          |
 | Read state    | Unread counts, per-member read timestamps, peer read indicators                                       |
 | Activity      | Room-scoped approximate presence and expiring typing status                                           |
-| Files         | Optional private uploads, 5 MB/MIME checks, authorized short-lived downloads                          |
+| Files         | Image previews, optional private uploads, 5 MB/MIME checks, authorized short-lived downloads                          |
 | UX            | Responsive thread/inbox, empty/loading/error states, draft retention on failure, modal focus handling |
 | Demo          | Explicit Demo mode label, browser-local state, no fabricated remote responses                         |
+
+## Verified locally
+
+Two verified accounts were tested in separate browser windows. Username search, direct conversation creation, messages in both directions, editing and deleting were confirmed by the project owner. Refreshing both windows preserved messages and edits, and deleted messages stayed deleted.
+
+Password recovery is implemented at `/forgot-password` using Firebase reset emails; delivery and completion still need an end-to-end test. Real file uploads and downloads have not been tested with Storage enabled.
 
 ## Architecture
 
@@ -72,13 +78,13 @@ npm run format:check
 npm run build
 ```
 
-See `docs/VERIFICATION.md` for the actual verification record and `docs/ACCEPTANCE.md` for the remote two-user/security checklist. No Firebase project or credentials are bundled.
+See `docs/VERIFICATION.md` for the actual verification record and `docs/ACCEPTANCE.md` for the remote two-user/security checklist. Private credentials and local environment files are excluded from Git; `.env.example` contains placeholders only.
 
 ## Deployment and remaining work
 
 Use a Node-compatible Next.js host, configure the public and server environment values, and add its domain to Firebase Auth. Restart/rebuild after public environment changes. Use HTTPS in production. Do not cache signed-in responses on a shared CDN. Firebase Hosting static deployment alone will not execute this app's Node API routes.
 
-This is an initial implementation, not an audited production service. Follow-up work includes message cursor pagination (currently all accessible messages are listened to), scoped preview queries, Firebase App Check and endpoint abuse controls, recovery/account deletion flows, content scanning, orphan cleanup, observability, and automated emulator tests for routes and deployed rules. Boundary tests do not replace those integration checks.
+This is an initial implementation, not an audited production service. Follow-up work includes message cursor pagination (currently all accessible messages are listened to), scoped preview queries, Firebase App Check and endpoint abuse controls, account deletion flows, content scanning, orphan cleanup, observability, and automated emulator tests for routes and deployed rules. Boundary tests do not replace those integration checks.
 
 Storage is disabled by default because Firebase Storage requires a billing-backed Blaze plan. Text chat can be configured first. Monitor Firestore operation usage; live listeners, presence and read receipts consume operations.
 
