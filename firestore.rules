@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function verified() { return request.auth != null && request.auth.token.email_verified == true; }
+  function member(room) { return verified() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(room)).data.member_ids; }
+  match /profiles/{uid} { allow read: if verified(); allow write: if false; }
+  match /conversations/{room} {
+   allow read: if verified() && request.auth.uid in resource.data.member_ids;
+   allow write: if false;
+   match /messages/{message} { allow read: if member(room); allow write: if false; }
+   match /activity/{uid} { allow read: if member(room); allow write: if false; }
+  }
+  match /{document=**} { allow read, write: if false; }
+ }
+}

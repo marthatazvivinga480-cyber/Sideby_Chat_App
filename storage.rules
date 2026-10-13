@@ -1,0 +1,13 @@
+rules_version = '2';
+service firebase.storage {
+ match /b/{bucket}/o {
+  function member(room) { return request.auth != null && request.auth.token.email_verified == true && request.auth.uid in firestore.get(/databases/(default)/documents/conversations/$(room)).data.member_ids && firestore.get(/databases/(default)/documents/conversations/$(room)).data.deleting == false; }
+  match /conversations/{room}/{uid}/{file} {
+   allow read: if member(room);
+   allow create: if member(room) && request.auth.uid == uid && file.matches('[a-f0-9-]{36}') && request.resource.size <= 5 * 1024 * 1024 && request.resource.contentType.matches('image/(jpeg|png|webp)|application/pdf|text/plain');
+   allow delete: if request.auth != null && request.auth.uid == uid;
+   allow update: if false;
+  }
+  match /{allPaths=**} { allow read, write: if false; }
+ }
+}
