@@ -44,3 +44,14 @@ test("stream limit rejects oversized requests without trusting content-length", 
     (e) => e instanceof Error && e.message === "Request is too large.",
   );
 });
+
+test("Render checks the configured public origin rather than its internal address", () => {
+  const internal = "http://localhost:10000/api/session";
+  const publicUrl = "https://sideby.onrender.com";
+  assert.equal(isSameOrigin(publicUrl, internal, publicUrl), true);
+  assert.equal(isSameOrigin("https://evil.example", internal, publicUrl), false);
+  assert.equal(isSameOrigin("http://localhost:10000", internal, publicUrl), false);
+  assert.equal(isSameOrigin(null, internal, publicUrl), false);
+  assert.equal(isSameOrigin("null", internal, publicUrl), false);
+  assert.equal(isSameOrigin(publicUrl, internal, "invalid-url"), false);
+});

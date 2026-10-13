@@ -1,6 +1,16 @@
 import { RequestError } from "./authorization";
-export function isSameOrigin(origin: string | null, url: string) {
-  return origin !== null && origin === new URL(url).origin;
+export function isSameOrigin(
+  origin: string | null,
+  url: string,
+  publicUrl: string | undefined = process.env.RENDER_EXTERNAL_URL,
+) {
+  if (!origin || origin === "null") return false;
+  try {
+    // Render's public URL is authoritative when HTTPS terminates at its proxy.
+    return origin === new URL(publicUrl || url).origin;
+  } catch {
+    return false;
+  }
 }
 export async function readJson(request: Request, maxBytes = 20000) {
   if (!request.body) throw new RequestError("Request body is required.");
