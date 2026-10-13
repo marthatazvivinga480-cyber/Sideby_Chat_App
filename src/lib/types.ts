@@ -5,6 +5,9 @@ export type Profile = {
   bio: string;
 };
 export type Message = {
+  reply_to?: string | null;
+  reply_preview?: { sender_id: string; body: string } | null;
+  reactions?: Record<string, string>;
   id: string;
   conversation_id: string;
   sender_id: string;

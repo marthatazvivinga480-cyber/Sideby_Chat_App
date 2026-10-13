@@ -116,6 +116,7 @@ async function handle(request: NextRequest, context: Context) {
           body: z.string().trim().max(4000),
           attachment_path: z.string().max(500).nullable(),
           attachment_name: z.string().min(1).max(255).nullable(),
+          reply_to: idSchema.nullable().optional(),
         })
         .parse(raw);
       requireOwner(message.sender_id, uid);
@@ -152,6 +153,12 @@ async function handle(request: NextRequest, context: Context) {
           requireOwner(existing.data()!.sender_id, uid);
           return;
         }
+        let reply_preview = null;
+        if (message.reply_to) {
+          const original = await t.get(roomRef.collection("messages").doc(message.reply_to));
+          if (!original.exists) throw new RequestError("The message you are replying to was deleted.", 404);
+          reply_preview = { sender_id: original.data()!.sender_id, body: String(original.data()!.body || original.data()!.attachment_name || "Attachment").slice(0, 300) };
+        }
         const window = nextRateWindow(
           rate.data() as { started: number; count: number } | undefined,
           Date.now(),
@@ -159,6 +166,8 @@ async function handle(request: NextRequest, context: Context) {
         t.set(rateRef, window);
         t.create(messageRef, {
           ...message,
+          reply_preview,
+          reactions: {},
           created_at: new Date().toISOString(),
           edited_at: null,
         });
@@ -195,6 +204,19 @@ async function handle(request: NextRequest, context: Context) {
         }
       }
       return NextResponse.json({ ok: true, warning });
+    }
+    if (resource === "reaction" && method === "POST") {
+      const { room, id, emoji } = z.object({ room: idSchema, id: idSchema, emoji: z.enum(["👍", "❤️", "😂", "🎉", "😮", "😢"]) }).parse(raw);
+      await db.runTransaction(async (t) => {
+        const ref = db.doc(`conversations/${room}/messages/${id}`);
+        const [conversation, message] = await Promise.all([t.get(db.doc(`conversations/${room}`)), t.get(ref)]);
+        requireMember(conversation.data(), uid);
+        if (!message.exists) throw new RequestError("Message not found.", 404);
+        const reactions = { ...(message.data()!.reactions ?? {}) };
+        if (reactions[uid] === emoji) delete reactions[uid]; else reactions[uid] = emoji;
+        t.update(ref, { reactions });
+      });
+      return NextResponse.json({ ok: true });
     }
     if (resource === "read" && method === "POST") {
       const { room } = z.object({ room: idSchema }).parse(raw);

@@ -221,3 +221,5 @@ export function signalTyping(room: string) {
   lastTyping = Date.now();
   void api("activity", "PUT", { room, typing: true }).catch(() => {});
 }
+
+export const toggleReaction = (room: string, id: string, emoji: string) => api("reaction", "POST", { room, id, emoji });

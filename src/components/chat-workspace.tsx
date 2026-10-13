@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import type { Conversation, Message, Profile } from "@/lib/types";
 import {
+  toggleReaction,
   watchConversations,
   watchActivity,
   signalTyping,
@@ -73,6 +74,9 @@ export function ChatWorkspace({
     [mobile, setMobile] = useState(false),
     [typing, setTyping] = useState(false),
     [connected, setConnected] = useState(false);
+  const [replying, setReplying] = useState<Message | null>(null);
+  const [reactionTarget, setReactionTarget] = useState<string | null>(null);
+  useEffect(() => { setReplying(null); setReactionTarget(null); }, [active]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [demoImages, setDemoImages] = useState<Record<string, string>>({});
   const imageUrls = useRef<string[]>([]);
@@ -281,6 +285,7 @@ export function ChatWorkspace({
       setActive(id!);
       setBody("");
       setFile(null);
+      setReplying(null);
       setEditing(null);
       setMobile(true);
       setModal(null);
@@ -322,6 +327,8 @@ export function ChatWorkspace({
           edited_at: null,
           attachment_path: path,
           attachment_name: file?.name ?? null,
+          reply_to: replying?.id ?? null,
+          reply_preview: replying ? { sender_id: replying.sender_id, body: (replying.body || replying.attachment_name || "Attachment").slice(0, 300) } : null,
         };
         if (demo && file?.type.startsWith("image/")) {
           const url = URL.createObjectURL(file);
@@ -346,6 +353,7 @@ export function ChatWorkspace({
       }
       setBody("");
       setFile(null);
+      setReplying(null);
       setEditing(null);
     });
   }
@@ -383,7 +391,20 @@ export function ChatWorkspace({
       setMobile(false);
       setBody("");
       setFile(null);
+      setReplying(null);
       setEditing(null);
+    });
+  }
+  async function react(message: Message, emoji: string) {
+    await run(async () => {
+      if (!demo) await toggleReaction(active, message.id, emoji);
+      else setConversations((rooms) => rooms.map((room) => room.id !== active ? room : { ...room, messages: room.messages.map((m) => {
+        if (m.id !== message.id) return m;
+        const reactions = { ...(m.reactions ?? {}) };
+        if (reactions[profile.id] === emoji) delete reactions[profile.id]; else reactions[profile.id] = emoji;
+        return { ...m, reactions };
+      }) }));
+      setReactionTarget(null);
     });
   }
   async function attachment(message: Message) {
@@ -604,6 +625,7 @@ export function ChatWorkspace({
                 >
                   <div className="message-content">
                     <div className="bubble">
+                      {m.reply_preview && <div className="reply-quote"><strong>{m.reply_preview.sender_id === profile.id ? "You" : current.peer.display_name}</strong><span>{m.reply_preview.body}</span><small>{current.messages.some((original) => original.id === m.reply_to) ? "" : "Original message unavailable"}</small></div>}
                       {m.body}
                       {m.attachment_name && (demoImages[m.id] || (!demo && m.attachment_path && /\.(png|jpe?g|webp)$/i.test(m.attachment_name))) && (
                         <MessageImage
@@ -621,7 +643,11 @@ export function ChatWorkspace({
                         </button>
                       )}
                     </div>
+                    {Object.entries(m.reactions ?? {}).length > 0 && <div className="reaction-chips">{Array.from(new Set(Object.values(m.reactions ?? {}))).map((emoji) => <button key={emoji} aria-pressed={m.reactions?.[profile.id] === emoji} aria-label={`React ${emoji}`} disabled={busy} onClick={() => react(m, emoji)}>{emoji} {Object.values(m.reactions ?? {}).filter((value) => value === emoji).length}</button>)}</div>}
+                    {reactionTarget === m.id && <div className="reaction-picker" role="group" aria-label="Choose reaction">{["👍", "❤️", "😂", "🎉", "😮", "😢"].map((emoji) => <button key={emoji} disabled={busy} onClick={() => react(m, emoji)} aria-label={`React ${emoji}`}>{emoji}</button>)}<button aria-label="Close reactions" onClick={() => setReactionTarget(null)}><X size={14} /></button></div>}
                     <div className="message-meta">
+                      <button disabled={busy} onClick={() => { setReplying(m); setEditing(null); messageInput.current?.focus(); }}>Reply</button>
+                      <button disabled={busy} aria-expanded={reactionTarget === m.id} onClick={() => setReactionTarget(reactionTarget === m.id ? null : m.id)}>React</button>
                       <span>
                         {stamp(m.created_at)}
                         {m.edited_at ? " · edited" : ""}
@@ -639,6 +665,7 @@ export function ChatWorkspace({
                           />
                           <button
                             onClick={() => {
+                              setReplying(null);
                               setEditing(m);
                               setBody(m.body);
                               setFile(null);
@@ -667,6 +694,7 @@ export function ChatWorkspace({
               <div ref={end} />
             </div>
             <form className="composer" onSubmit={send}>
+              {replying && <div className="composer-context reply-context"><div><strong>Replying to {replying.sender_id === profile.id ? "yourself" : current.peer.display_name}</strong><p>{replying.body || replying.attachment_name || "Attachment"}</p></div><button type="button" aria-label="Cancel reply" onClick={() => setReplying(null)}><X size={16} /></button></div>}
               {editing && (
                 <div className="composer-context">
                   Editing your message{" "}
