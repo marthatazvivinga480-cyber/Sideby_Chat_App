@@ -40,11 +40,14 @@ This edition replaces Supabase entirely. There is no SQL/RLS migration to run. I
 | UX            | Responsive thread/inbox, empty/loading/error states, draft retention on failure, modal focus handling |
 | Demo          | Explicit Demo mode label, browser-local state, no fabricated remote responses                         |
 
+| Reactions     | Six emoji choices, one reaction per user per message, click again to remove, live updates |
+| Replies       | Quoted original-message preview, cancel reply, server-validated reply target |
+
 ## Verified locally
 
 Two verified accounts were tested in separate browser windows. Username search, direct conversation creation, messages in both directions, editing and deleting were confirmed by the project owner. Refreshing both windows preserved messages and edits, and deleted messages stayed deleted.
 
-Password recovery is implemented at `/forgot-password` using Firebase reset emails; delivery and completion still need an end-to-end test. Real file uploads and downloads have not been tested with Storage enabled.
+Password recovery was tested by the project owner: a reset email was received and sign-in with the new password succeeded. Reactions appeared in both accounts, reaction removal was observed, and quoted replies persisted after refresh. The local production build completed successfully. Real file uploads and downloads have not been tested with Storage enabled.
 
 ## Architecture
 
@@ -80,7 +83,23 @@ npm run build
 
 See `docs/VERIFICATION.md` for the actual verification record and `docs/ACCEPTANCE.md` for the remote two-user/security checklist. Private credentials and local environment files are excluded from Git; `.env.example` contains placeholders only.
 
-## Deployment and remaining work
+## Deploy on Render
+
+Create a Node Web Service from this repository with branch `main` and an empty root directory.
+
+- Build command: `npm ci && npm run build`
+- Start command: `npm start -- --hostname 0.0.0.0`
+- Add the six `NEXT_PUBLIC_FIREBASE_` web configuration values from `.env.example`.
+- Keep `NEXT_PUBLIC_FIREBASE_ENABLE_STORAGE=false` while image sharing is disabled.
+- Set `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` privately in Render. Preserve escaped `\n` in the private key. Never commit the service-account JSON.
+- Do not use the local Windows `GOOGLE_APPLICATION_CREDENTIALS` path on Render.
+- Add the deployed hostname to Firebase Authentication's authorized domains.
+
+Render's `RENDER_EXTERNAL_URL` is used for origin validation because its HTTPS proxy can forward requests with an internal server address. Local development falls back to the request URL. Missing and foreign origins are rejected.
+
+The initial Render deployment succeeded. A sign-in origin mismatch was subsequently fixed locally; successful live sign-in after redeployment still needs confirmation.
+
+## Remaining work
 
 Use a Node-compatible Next.js host, configure the public and server environment values, and add its domain to Firebase Auth. Restart/rebuild after public environment changes. Use HTTPS in production. Do not cache signed-in responses on a shared CDN. Firebase Hosting static deployment alone will not execute this app's Node API routes.
 
